@@ -27,6 +27,7 @@ class _CardsScreenState extends State<CardsScreen> {
   Future<void> _loadCards() async {
     final cards =
         await _cardRepo.getCardsByFolderId(widget.folder.id!);
+
     setState(() {
       _cards = cards;
       _isLoading = false;
@@ -34,10 +35,48 @@ class _CardsScreenState extends State<CardsScreen> {
   }
 
   Future<void> _deleteCard(int id) async {
-    await _cardRepo.deleteCard(id);
-    _loadCards();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Card deleted")),
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: Text("Delete Card?"),
+        content: Text("Are you sure you want to delete this card?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _cardRepo.deleteCard(id);
+      _loadCards();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Card deleted")),
+      );
+    }
+  }
+
+  Widget _buildCardImage(PlayingCard card) {
+    if (card.imageUrl == null || card.imageUrl!.isEmpty) {
+      return Icon(Icons.image, size: 50);
+    }
+
+    return Image.asset(
+      card.imageUrl!,
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Icon(Icons.broken_image, size: 50);
+      },
     );
   }
 
@@ -59,38 +98,45 @@ class _CardsScreenState extends State<CardsScreen> {
         itemBuilder: (context, index) {
           final card = _cards[index];
 
-          return ListTile(
-            leading: Icon(Icons.style),
-            title: Text(card.cardName),
-            subtitle: Text(card.suit),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.edit),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AddEditCardScreen(
-                          folderId: widget.folder.id!,
-                          existingCard: card,
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ListTile(
+              leading: _buildCardImage(card),
+              title: Text(
+                card.cardName,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(card.suit),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddEditCardScreen(
+                            folderId: widget.folder.id!,
+                            existingCard: card,
+                          ),
                         ),
-                      ),
-                    );
-                    _loadCards();
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteCard(card.id!),
-                ),
-              ],
+                      );
+                      _loadCards();
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _deleteCard(card.id!),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.add),
         onPressed: () async {
           await Navigator.push(
             context,
@@ -102,7 +148,6 @@ class _CardsScreenState extends State<CardsScreen> {
           );
           _loadCards();
         },
-        child: Icon(Icons.add),
       ),
     );
   }
